@@ -142,7 +142,7 @@ def _get_group_memberships_for_pic( flickrapi_handle, pic_id ):
     for curr_group in pic_contexts['pool']:
         group_memberships[ curr_group['id']] = curr_group
 
-    print( "Group memberships:\n" + json.dumps(group_memberships, indent=4, sort_keys=True))
+    #print( "Group memberships:\n" + json.dumps(group_memberships, indent=4, sort_keys=True))
 
     return group_memberships
 
@@ -183,46 +183,38 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
 
                 # Subtract current memberships from desired to obtain list that we should *consider* trying
                 groups_that_pic_is_not_in = []
-                for curr_desired in desired_list_of_groups:
+                for curr_desired in sorted(desired_list_of_groups):
                     #print( f"\tEvaluating group {curr_desired} for pic {current_pic_id}")
                     if curr_desired not in pic_group_memberships:
                         groups_that_pic_is_not_in.append( curr_desired )
-                        print( f"\t\t{current_pic_id} is not in {curr_desired}, one we should consider")
+                        #print( f"\t{current_pic_id} is not in {curr_desired}, one we should consider")
                     else:
                         #print( f"\t\tPic is already in {curr_desired}, skipping" )
-                        pass
+                        stats['skipped_already_added'] += 1
 
+                # Iterate over all the groups we're thinking to add this pic to
+                for current_group_id in groups_that_pic_is_not_in:
+                    # Check state on this entry to make sure it isn't too early to try
+                    state_key = _generate_state_key( current_pic_id, current_group_id )
+                    #print( f"State key: {state_key}")
+                    if state_key in request_state_info:
+                        state_entry = request_state_info[state_key]
+                        if _has_add_attempt_within_same_utc_day(state_entry):
+                            print( f"\tSkipping photo {current_pic_id} -> group {current_group_id}, already had a failure today (same UTC date)" )
+                            stats['skipped_too_soon'] += 1
+                            continue
+                    else:
+                        #print( f"INFO: Creating state entry for pic {current_pic_id} into group {current_group_id} as it wasn't in state info")
+                        _create_state_entry(request_state_info, current_pic_id, current_group_id )
+                        state_entry = request_state_info[state_key]
 
-
-                # # Iterate over all the groups we're thinking to add this pic to
-                # for current_group_entry in current_pic_info:
-                #     # Take first token (separated by whitespace) as the group NSID. The rest is human readability fluff
-                #     current_group_id = current_group_entry.split()[0]
-                #     # Check state on this entry to make sure it wasn't already added
-                #     state_key = _generate_state_key( current_pic_id, current_group_id )
-                #     #print( f"State key: {state_key}")
-                #     if state_key in request_state_info:
-                #         state_entry = request_state_info[state_key]
-                #         if state_entry['photo_added']:
-                #             print( f"\tSkipping photo {current_pic_id} to group {current_group_id}, already added")
-                #             stats['skipped_already_added'] += 1
-                #             continue
-                #         elif _has_add_attempt_within_same_utc_day(state_entry):
-                #             print( f"\tSkipping photo {current_pic_id} to group {current_group_id}, already had a failure today (same UTC date)" )
-                #             stats['skipped_too_soon'] += 1
-                #             continue
-                #     else:
-                #         #print( f"INFO: Creating state entry for pic {current_pic_id} into group {current_group_id} as it wasn't in state info")
-                #         _create_state_entry(request_state_info, current_pic_id, current_group_id )
-                #         state_entry = request_state_info[state_key]
-                #
-                #     # Attempt add, because either state says we haven't succeeded yet or there *was* no state yet
-                #     #print( "attempting add")
-                #     _add_pic_to_group( flickrapi_handle, current_pic_id, current_group_id, state_entry )
-                #     if state_entry['fga_add_attempts'][-1]['status'] == 'success':
-                #         stats['attempted_success'] += 1
-                #     else:
-                #         stats['attempted_fail'] += 1
+                    # Attempt add, because either state says we haven't tried during current UTC day or there *was* no state yet
+                    #print( "attempting add")
+                    _add_pic_to_group( flickrapi_handle, current_pic_id, current_group_id, state_entry )
+                    if state_entry['fga_add_attempts'][-1]['status'] == 'success':
+                        stats['attempted_success'] += 1
+                    else:
+                        stats['attempted_fail'] += 1
 
             _persist_request_set_state( request_set_info['request_set_state'], request_set_state_json_filename )
         else:
