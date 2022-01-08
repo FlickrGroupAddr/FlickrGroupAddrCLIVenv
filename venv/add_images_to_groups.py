@@ -157,6 +157,8 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
         'attempted_fail'            : 0,
     }
 
+    today_date_utc = datetime.datetime.now( datetime.timezone.utc ).date()
+
     # Iterate over all JSON files in the specified directory
     for curr_json_file in glob.glob( os.path.join( args.request_set_json_dir, "*.json") ):
         if _is_request_set_json(curr_json_file):
@@ -200,7 +202,7 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
                     if state_key in request_state_info:
                         state_entry = request_state_info[state_key]
                         if _has_add_attempt_within_same_utc_day(state_entry):
-                            print( f"\tSkipping photo {current_pic_id} -> group {current_group_id}, already had a failure today (same UTC date)" )
+                            print( f"\tPhoto {current_pic_id} -> group {current_group_id} already attempted today ({today_date_utc}, UTC), skipping" )
                             stats['skipped_too_soon'] += 1
                             continue
                     else:
