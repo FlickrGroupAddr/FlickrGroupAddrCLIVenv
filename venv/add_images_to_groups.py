@@ -102,12 +102,21 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
         }
 
     except flickrapi.exceptions.FlickrError as e:
-        print( f"\t\t{str(e)}" )
-        state_entry_add_attempt_details = {
-            'timestamp'     : current_timestamp.isoformat(),
-            'status'        : 'fail',
-            'error_message' : str(e),
-        }
+        error_string = str(e)
+        adding_to_pending_queue_error_msg = "Error: 6:"
+        if error_string.startswith(adding_to_pending_queue_error_msg):
+            state_entry_add_attempt_details = {
+                'timestamp': current_timestamp.isoformat(),
+                'status': 'success',
+            }
+            print( "\t\tSuccess (added to pending queue)!")
+        else:
+            print( f"\t\t{str(e)}" )
+            state_entry_add_attempt_details = {
+                'timestamp'     : current_timestamp.isoformat(),
+                'status'        : 'fail',
+                'error_message' : str(e),
+            }
 
     state_entry['fga_add_attempts'].append( state_entry_add_attempt_details )
 
