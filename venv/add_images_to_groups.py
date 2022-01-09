@@ -109,6 +109,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
                 'timestamp': current_timestamp.isoformat(),
                 'status': 'success_queued',
             }
+            state_entry['photo_added'] = True
             print( "\t\tSuccess (added to pending queue)!")
         else:
             print( f"\t\t{str(e)}" )
@@ -117,6 +118,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
                 'status'        : 'fail',
                 'error_message' : str(e),
             }
+            state_entry['photo_added'] = False
 
     state_entry['fga_add_attempts'].append( state_entry_add_attempt_details )
 
