@@ -90,7 +90,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
     #print( f"Timestamp of this attempt: {current_timestamp.isoformat()}" )
 
     try:
-        print(f"\t* Attempting to add photo {photo_id} group {group_id}")
+        print(f"\t* Attempting to add photo {photo_id} to group {group_id}")
         flickrapi_handle.groups.pools.add( photo_id=photo_id, group_id=group_id )
 
         # Success!
