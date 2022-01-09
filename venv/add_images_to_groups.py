@@ -148,8 +148,9 @@ def _get_group_memberships_for_pic( flickrapi_handle, pic_id ):
 
     #print( "Contexts:\n" + json.dumps(pic_contexts, indent=4, sort_keys=True))
     group_memberships = {}
-    for curr_group in pic_contexts['pool']:
-        group_memberships[ curr_group['id']] = curr_group
+    if 'pool' in pic_contexts:
+        for curr_group in pic_contexts['pool']:
+            group_memberships[ curr_group['id']] = curr_group
 
     #print( "Group memberships:\n" + json.dumps(group_memberships, indent=4, sort_keys=True))
 
