@@ -98,7 +98,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
         state_entry['photo_added'] = True
         state_entry_add_attempt_details = {
             'timestamp' : current_timestamp.isoformat(),
-            'status'    : 'success',
+            'status'    : 'success_added',
         }
 
     except flickrapi.exceptions.FlickrError as e:
@@ -107,7 +107,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
         if error_string.startswith(adding_to_pending_queue_error_msg):
             state_entry_add_attempt_details = {
                 'timestamp': current_timestamp.isoformat(),
-                'status': 'success',
+                'status': 'success_queued',
             }
             print( "\t\tSuccess (added to pending queue)!")
         else:
@@ -163,7 +163,8 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
     stats = {
         'skipped_already_added'     : 0,
         'skipped_too_soon'          : 0,
-        'attempted_success'         : 0,
+        'attempted_success_added'  : 0,
+        'attempted_success_queued'  : 0,
         'attempted_fail'            : 0,
     }
 
@@ -223,8 +224,10 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
                     # Attempt add, because either state says we haven't tried during current UTC day or there *was* no state yet
                     #print( "attempting add")
                     _add_pic_to_group( flickrapi_handle, current_pic_id, current_group_id, state_entry )
-                    if state_entry['fga_add_attempts'][-1]['status'] == 'success':
-                        stats['attempted_success'] += 1
+                    if state_entry['fga_add_attempts'][-1]['status'] == 'success_added':
+                        stats['attempted_success_added'] += 1
+                    elif state_entry['fga_add_attempts'][-1]['status'] == 'success_queued':
+                        stats['attempted_success_queued'] += 1
                     else:
                         stats['attempted_fail'] += 1
 
