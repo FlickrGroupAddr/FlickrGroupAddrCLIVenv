@@ -103,20 +103,29 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
 
     except flickrapi.exceptions.FlickrError as e:
         error_string = str(e)
+        group_throttled_msg = "Error: 5:"
         adding_to_pending_queue_error_msg = "Error: 6:"
-        if error_string.startswith(adding_to_pending_queue_error_msg):
+        if error_string.startswith(group_throttled_msg):
             state_entry_add_attempt_details = {
-                'timestamp': current_timestamp.isoformat(),
-                'status': 'success_queued',
+                'timestamp'         : current_timestamp.isoformat(),
+                'status'            : 'fail_group_throttled',
+                'error_message'     : error_string,
+            }
+            state_entry['photo_added'] = False
+            print("\t\tSuccess (added to pending queue)!")
+        elif error_string.startswith(adding_to_pending_queue_error_msg):
+            state_entry_add_attempt_details = {
+                'timestamp'         : current_timestamp.isoformat(),
+                'status'            : 'success_queued',
             }
             state_entry['photo_added'] = True
             print( "\t\tSuccess (added to pending queue)!")
         else:
             print( f"\t\t{error_string}" )
             state_entry_add_attempt_details = {
-                'timestamp'     : current_timestamp.isoformat(),
-                'status'        : 'fail',
-                'error_message' : str(e),
+                'timestamp'         : current_timestamp.isoformat(),
+                'status'            : 'fail',
+                'error_message'     : str(e),
             }
             state_entry['photo_added'] = False
 
@@ -159,18 +168,20 @@ def _get_group_memberships_for_pic( flickrapi_handle, pic_id ):
     return group_memberships
 
 
-def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info ):
-    flickrapi_handle = _create_flickr_api_handle(app_flickr_api_key_info, user_flickr_auth_info)
+def _add_pics_to_groups( args,  flickrapi_handle ):
 
     stats = {
-        'skipped_already_added'     : 0,
-        'skipped_too_soon'          : 0,
-        'attempted_success_added'  : 0,
-        'attempted_success_queued'  : 0,
-        'attempted_fail'            : 0,
+        'skipped_already_added'             : 0,
+        'skipped_too_soon'                  : 0,
+        'skipped_group_throttled'           : 0,
+        'attempted_success_added'           : 0,
+        'attempted_success_queued'          : 0,
+        'attempted_fail'                    : 0,
     }
 
     today_date_utc = datetime.datetime.now( datetime.timezone.utc ).date()
+
+    throttled_groups = {}
 
     # Iterate over all JSON files in the specified directory
     for curr_json_file in glob.glob( os.path.join( args.request_set_json_dir, "*.json") ):
@@ -223,6 +234,11 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
                         _create_state_entry(request_state_info, current_pic_id, current_group_id )
                         state_entry = request_state_info[state_key]
 
+                    if current_group_id in throttled_groups:
+                        print( f"\tSkipping {current_group_id}; group is already throttled for this user today" )
+                        stats['skipped_group_throttled'] += 1
+                        continue
+
                     # Attempt add, because either state says we haven't tried during current UTC day or there *was* no state yet
                     #print( "attempting add")
                     _add_pic_to_group( flickrapi_handle, current_pic_id, current_group_id, state_entry )
@@ -230,6 +246,10 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
                         stats['attempted_success_added'] += 1
                     elif state_entry['fga_add_attempts'][-1]['status'] == 'success_queued':
                         stats['attempted_success_queued'] += 1
+                    elif state_entry['fga_add_attempts'][-1]['status'] == 'fail_group_throttled':
+                        stats['attempted_fail'] += 1
+                        # Add to list of throttled groups
+                        throttled_groups[ current_group_id ] = None
                     else:
                         stats['attempted_fail'] += 1
 
@@ -240,6 +260,14 @@ def _add_pics_to_groups( args,  app_flickr_api_key_info, user_flickr_auth_info )
 
     return stats
 
+
+def _read_request_sets( args, flickapi_handle ):
+    # Iterate over all JSON files in the specified directory
+    for curr_json_file in glob.glob( os.path.join( args.request_set_json_dir, "*.json") ):
+        if _is_request_set_json(curr_json_file):
+            print(f"\nReading {curr_json_file}")
+
+
 def _main():
     args = _parse_args()
 
@@ -248,7 +276,13 @@ def _main():
     user_flickr_auth_info = _read_user_flickr_auth_info( args )
 
     # Ready to kick off the operations
-    stats = _add_pics_to_groups( args, app_flickr_api_key_info, user_flickr_auth_info )
+
+    flickrapi_handle = _create_flickr_api_handle(app_flickr_api_key_info, user_flickr_auth_info)
+
+    # Find all groups for all pics, including groups inherited from albums
+    #parsed_request_set_data = _read_request_sets( args, flickrapi_handle )
+
+    stats = _add_pics_to_groups( args, flickrapi_handle )
     print( "\nOperation stats:\n" + json.dumps(stats, indent=4, sort_keys=True))
 
 
