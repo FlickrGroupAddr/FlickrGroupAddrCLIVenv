@@ -112,7 +112,7 @@ def _add_pic_to_group(flickrapi_handle, photo_id, group_id, state_entry ):
                 'error_message'     : error_string,
             }
             state_entry['photo_added'] = False
-            print("\t\tSuccess (added to pending queue)!")
+            print(f"\t\tGroup {group_id} has hit its throttle limit for the day")
         elif error_string.startswith(adding_to_pending_queue_error_msg):
             state_entry_add_attempt_details = {
                 'timestamp'         : current_timestamp.isoformat(),
